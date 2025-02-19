@@ -1,0 +1,46 @@
+# services:
+#   mongo:
+#     image: mongo
+#     container_name: mongo_db
+#     restart: always
+#     ports:
+#       - "27017:27017"
+#     volumes:
+#       - mongo_data:/data/db
+
+#   app:
+#     build: .
+#     container_name: webhook_nodejs
+#     depends_on:
+#       - mongo
+#     environment:
+#       - MONGO_URI=mongodb://mongo:27017/whatsapp_bot
+#     ports:
+#       - "3001:3001"
+#     volumes:
+#       - .:/app
+#       - /app/node_modules
+#     command: npm run dev
+
+# volumes:
+#   mongo_data:
+
+
+services:
+  app:
+    build: .
+    container_name: webhook_nodejs
+    environment:
+      - API_VALIDATE_URL=${API_VALIDATE_URL}
+      - API_VALIDATE_URL_OT=${API_VALIDATE_URL_OT}
+      - WHATSAPP_API_URL=${WHATSAPP_API_URL}
+      - APP_BASIC_AUTH=${APP_BASIC_AUTH}
+      - MONGO_URI=${MONGO_URI}
+    ports:
+      - "3001:3001"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run dev
+    env_file:
+    - .env

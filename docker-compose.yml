@@ -1,0 +1,45 @@
+version: "3.8"
+
+services:
+  whatsapp_go:
+    build:
+      context: ./whatsapp-go
+      dockerfile: docker/golang.Dockerfile
+    container_name: whatsapp_go
+    restart: always
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./whatsapp-go/src/.env
+    networks:
+      - app_network
+    
+  backend:
+    build: ./backend-webhook
+    container_name: webhook_backend
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./backend-webhook:/app
+      - /app/node_modules
+    command: npm run dev
+    networks:
+      - app_network
+    env_file:
+      - ./backend-webhook/.env
+
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    ports:
+      - "3002:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run dev
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge
