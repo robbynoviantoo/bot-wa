@@ -31,7 +31,7 @@ export default function UserForm({ onUserAdded }: { onUserAdded: () => void }) {
         placeholder="Nama"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        className="border p-2 m-2"
+        className="border p-2 m-2 text-black"
         required
       />
       <input
@@ -39,7 +39,7 @@ export default function UserForm({ onUserAdded }: { onUserAdded: () => void }) {
         placeholder="Nomor HP"
         value={phone}
         onChange={(e) => setPhone(e.target.value)}
-        className="border p-2 m-2"
+        className="border p-2 m-2 text-black"
         required
       />
       <input
@@ -47,7 +47,7 @@ export default function UserForm({ onUserAdded }: { onUserAdded: () => void }) {
         placeholder="Token"
         value={token}
         onChange={(e) => setToken(e.target.value)}
-        className="border p-2 m-2"
+        className="border p-2 m-2 text-black"
         required
       />
       <button type="submit" className="bg-green-500 text-white px-4 py-2">
