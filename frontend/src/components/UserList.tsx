@@ -2,13 +2,13 @@ import { useMemo, useState } from "react";
 import DataTable, { TableColumn } from "react-data-table-component";
 
 interface User {
-  id: number;
+  id: string;
   name: string;
   phone: string;
   token: string;
 }
 
-export default function UserList({ users }: { users: User[] }) {
+export default function UserList({ users, onEdit, onDelete }: { users: User[]; onEdit: (user: User) => void; onDelete: (id: string) => void; }) {
   const [filterText, setFilterText] = useState("");
 
   const filteredUsers = useMemo(() => {
@@ -21,6 +21,11 @@ export default function UserList({ users }: { users: User[] }) {
 
   const columns: TableColumn<User>[] = useMemo(
     () => [
+      {
+        name: "ID",
+        selector: (row) => row.id,
+        sortable: true,
+      },
       {
         name: "Nama",
         selector: (row) => row.name,
@@ -36,8 +41,27 @@ export default function UserList({ users }: { users: User[] }) {
         selector: (row) => row.token,
         wrap: true,
       },
+      {
+        name: "Aksi",
+        cell: (row) => (
+          <div className="flex gap-2">
+            <button
+              onClick={() => onEdit(row)}
+              className="px-3 py-1 bg-yellow-500 text-white rounded-md hover:bg-yellow-600"
+            >
+              Edit
+            </button>
+            <button
+              onClick={() => onDelete(row.id)}
+              className="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600"
+            >
+              Hapus
+            </button>
+          </div>
+        ),
+      },
     ],
-    []
+    [onEdit, onDelete]
   );
 
   return (
