@@ -81,12 +81,8 @@ app.post("/webhook", authenticate, async (req, res) => {
   const userName = userData.name || senderPhone;
   console.log(`🔹 Menggunakan token milik ${userName} untuk validasi...`);
 
-  let validationResult = {
-    success: false,
-    message: "⚠️ Format tidak dikenali.",
-  };
+  let validationResult = null;
 
-  // 🔍 **Gunakan mapping untuk mencari handler yang cocok**
   for (const { regex, handler, apiUrl } of messageHandlers) {
     if (regex.test(messageText)) {
       console.log("✅ Format terdeteksi, menjalankan handler...");
@@ -101,9 +97,13 @@ app.post("/webhook", authenticate, async (req, res) => {
     }
   }
 
+  if (!validationResult) {
+    console.log("⚠️ Tidak ada format yang cocok, abaikan pesan.");
+    return res.status(200).json({ success: true });
+  }
+
   console.log("📤 Balasan:", validationResult.message);
 
-  // 🚀 **Mengirim balasan ke WhatsApp**
   const recipient = groupId || senderPhone;
   const basicAuthHeader = `Basic ${Buffer.from(
     process.env.APP_BASIC_AUTH
@@ -129,6 +129,7 @@ app.post("/webhook", authenticate, async (req, res) => {
 
   res.status(200).json({ success: true });
 });
+
 
 app.post("/add-user-token", async (req, res) => {
   const { phone, token, name } = req.body;
