@@ -38,10 +38,7 @@ function authenticate(req, res, next) {
 }
 
 app.post("/webhook", authenticate, async (req, res) => {
-  console.log(
-    "📩 Pesan diterima dari WhatsApp:",
-    JSON.stringify(req.body, null, 2)
-  );
+  console.log("📩 Pesan diterima dari WhatsApp:", JSON.stringify(req.body, null, 2));
 
   const senderRaw = req.body?.from || "";
   const messageText = req.body?.message?.text?.trim() || "";
@@ -64,35 +61,36 @@ app.post("/webhook", authenticate, async (req, res) => {
     ? senderParts[0]
     : senderParts[0] + "@s.whatsapp.net";
 
-  console.log(
-    `👤 Pengirim: ${senderPhone}, 📢 Grup: ${groupId || "Bukan Grup"}`
-  );
+  console.log(`👤 Pengirim: ${senderPhone}, 📢 Grup: ${groupId || "Bukan Grup"}`);
+
+  let userToken = null;
+  let userName = senderPhone;
 
   const UserToken = require("./models/UserToken");
-
   const userData = await UserToken.findOne({ phone: senderPhone });
 
-  if (!userData) {
-    console.log("❌ Nomor pengirim tidak memiliki token yang valid.");
-    return res.status(200).json({ success: true });
+  if (userData) {
+    userToken = userData.token;
+    userName = userData.name || senderPhone;
+    console.log(`🔹 Menggunakan token milik ${userName}...`);
+  } else {
+    console.log("⚠️ Pengirim tidak memiliki token yang valid.");
   }
-
-  const userToken = userData.token;
-  const userName = userData.name || senderPhone;
-  console.log(`🔹 Menggunakan token milik ${userName} untuk validasi...`);
 
   let validationResult = null;
 
-  for (const { regex, handler, apiUrl } of messageHandlers) {
+  for (const { regex, handler, apiUrl, requiresToken } of messageHandlers) {
     if (regex.test(messageText)) {
       console.log("✅ Format terdeteksi, menjalankan handler...");
-      validationResult = await handler(
-        messageText,
-        senderPhone,
-        userToken,
-        userName,
-        apiUrl
-      );
+
+      if (requiresToken && !userToken) {
+        console.log("❌ Token diperlukan, tetapi tidak ditemukan.");
+        validationResult = { success: false, message: "❌ Anda tidak memiliki izin untuk menggunakan perintah ini." };
+      } else {
+        validationResult = requiresToken
+          ? await handler(messageText, senderPhone, userToken, userName, apiUrl)
+          : await handler(messageText, senderPhone, null, userName, apiUrl);
+      }
       break;
     }
   }
@@ -105,9 +103,7 @@ app.post("/webhook", authenticate, async (req, res) => {
   console.log("📤 Balasan:", validationResult.message);
 
   const recipient = groupId || senderPhone;
-  const basicAuthHeader = `Basic ${Buffer.from(
-    process.env.APP_BASIC_AUTH
-  ).toString("base64")}`;
+  const basicAuthHeader = `Basic ${Buffer.from(process.env.APP_BASIC_AUTH).toString("base64")}`;
 
   try {
     await axios.post(
@@ -121,14 +117,12 @@ app.post("/webhook", authenticate, async (req, res) => {
     );
     console.log("✅ Balasan berhasil dikirim ke:", recipient);
   } catch (error) {
-    console.error(
-      "❌ Gagal mengirim balasan:",
-      error.response?.data || error.message
-    );
+    console.error("❌ Gagal mengirim balasan:", error.response?.data || error.message);
   }
 
   res.status(200).json({ success: true });
 });
+
 
 
 app.post("/add-user-token", async (req, res) => {
