@@ -4,6 +4,7 @@ const messageHandlers = [
   {
     regex: /^V\s+(\d+)$/i,
     apiUrl: process.env.API_VALIDATE_URL,
+    requiresToken: true, // ✅ Butuh token
     handler: async (messageText, senderPhone, userToken, userName, apiUrl) => {
       return await validateCode(messageText, senderPhone, userToken, userName, apiUrl);
     },
@@ -11,6 +12,7 @@ const messageHandlers = [
   {
     regex: /^OT\s+(.+),\s*Sabtu:\s*(\d),\s*([\d,\s]+),\s*(\d+(\.\d+)?)$/i,
     apiUrl: process.env.API_VALIDATE_URL_OT,
+    requiresToken: true, // ✅ Butuh token
     handler: async (messageText, senderPhone, userToken, userName, apiUrl) => {
       return await overtimeInput(messageText, senderPhone, userToken, userName, apiUrl);
     },
@@ -26,6 +28,7 @@ const messageHandlers = [
   {
     regex: /^INFO$/i,
     apiUrl: null,
+    requiresToken: false, // ❌ Tidak butuh token
     handler: async (messageText, senderPhone) => {
       return { success: true, message: `📌 Halo ${senderPhone}, ini adalah pesan info.` };
     },
@@ -33,11 +36,12 @@ const messageHandlers = [
   {
     regex: /^HELP$/i,
     apiUrl: null,
+    requiresToken: false, // ❌ Tidak butuh token
     handler: async () => {
       return {
         success: true,
         message:
-          "📜 Format pesan yang tersedia:\n" +
+          "📛 Format pesan yang tersedia:\n" +
           "✅ `V <kode>` - Validasi kode\n" +
           "✅ `MCS <artikel>` - Check Ketersediaan MCS\n" +
           "🕒 `OT {Area}, Sabtu:{0/1}, {NIK}, {Waktu}` - Input lembur\n" +

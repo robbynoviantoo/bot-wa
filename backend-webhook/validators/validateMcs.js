@@ -19,7 +19,7 @@ async function validateMcs(messageText, senderPhone, userName, API_CHECK_MCS_URL
     } else if (response.data.message === "Sedang dipinjam") {
       return { 
         success: false, 
-        message: `❌ Mcs dengan artikel ${artikel} sedang dipinjam oleh ${response.data.borrower_name}.` 
+        message: `❌ MCS dengan artikel ${artikel} sedang dipinjam oleh ${response.data.borrower_name}.` 
       };
     } else {
       return { success: false, message: `❌ ${response.data.message}` };
