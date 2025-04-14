@@ -26,7 +26,7 @@ async function validateMcs(messageText, senderPhone, userName, API_CHECK_MCS_URL
     }
   } catch (error) {
     console.error("❌ Gagal mengecek Mcs:", error.message);
-    return { success: false, message: "❌ Terjadi kesalahan saat mengecek Mcs." };
+    return { success: false, message: "❌ MCS Belum tersedia di QIP." };
   }
 }
 
