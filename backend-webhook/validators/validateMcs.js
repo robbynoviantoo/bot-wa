@@ -15,7 +15,7 @@ async function validateMcs(messageText, senderPhone, userName, API_CHECK_MCS_URL
     const response = await axios.get(`${API_CHECK_MCS_URL}?artikel=${artikel}`);
 
     if (response.data.message === "Ada") {
-      return { success: true, message: `✅ MCS dengan artikel ${artikel} tersedia!` };
+      return { success: true, message: `✅ MCS dengan artikel ${artikel} tersedia di rak ${response.data.data.no_rak}!` };
     } else if (response.data.message === "Sedang dipinjam") {
       return { 
         success: false, 
