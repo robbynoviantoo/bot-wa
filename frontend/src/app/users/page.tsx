@@ -26,7 +26,7 @@ export default function UsersPage() {
   const fetchUsers = async () => {
     try {
       console.log("Fetching users from backend...");
-      const res = await fetch("http://localhost:3001/api/users");
+      const res = await fetch("http://webhook_backend:3001/api/users");
       if (!res.ok) {
         throw new Error(`HTTP error! Status: ${res.status}`);
       }

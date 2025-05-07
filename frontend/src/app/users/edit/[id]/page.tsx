@@ -27,7 +27,7 @@ export default function EditUserPage() {
   const fetchUser = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`http://localhost:3001/api/users/${id}`);
+      const res = await fetch(`http://webhook_backend:3001/api/users/${id}`);
       if (!res.ok) throw new Error("User not found");
 
       const responseData = await res.json();
@@ -46,7 +46,7 @@ export default function EditUserPage() {
 
   const handleUpdate = async () => {
     try {
-      const res = await fetch(`http://localhost:3001/api/users/${id}`, {
+      const res = await fetch(`http://webhook_backend:3001/api/users/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, phone, token }),
