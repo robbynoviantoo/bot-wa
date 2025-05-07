@@ -26,7 +26,7 @@ export default function UsersPage() {
   const fetchUsers = async () => {
     try {
       console.log("Fetching users from backend...");
-      const res = await fetch("http://webhook_backend:3001/api/users");
+      const res = await fetch("http://10.20.10.106:3001/api/users");
       if (!res.ok) {
         throw new Error(`HTTP error! Status: ${res.status}`);
       }
@@ -56,7 +56,7 @@ export default function UsersPage() {
   
     if (result.isConfirmed) {
       try {
-        const res = await fetch(`http://localhost:3001/api/users/${id}`, {
+        const res = await fetch(`http://10.20.10.106:3001/api/users/${id}`, {
           method: "DELETE",
         });
   
