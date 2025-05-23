@@ -1,4 +1,4 @@
-const { validateCode, overtimeInput, validateMcs } = require("./validators");
+const { validateCode, overtimeInput, validateMcs, validateEdit } = require("./validators");
 
 const messageHandlers = [
   {
@@ -7,6 +7,14 @@ const messageHandlers = [
     requiresToken: true, // ✅ Butuh token
     handler: async (messageText, senderPhone, userToken, userName, apiUrl) => {
       return await validateCode(messageText, senderPhone, userToken, userName, apiUrl);
+    },
+  },
+  {
+    regex: /^RE\s+(\d+)$/i,
+    apiUrl: process.env.API_VALIDATE_EDIT_URL,
+    requiresToken: true, // ✅ Butuh token
+    handler: async (messageText, senderPhone, userToken, userName, apiUrl) => {
+      return await validateEdit(messageText, senderPhone, userToken, userName, apiUrl);
     },
   },
   {
