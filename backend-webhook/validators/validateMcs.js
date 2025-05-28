@@ -14,20 +14,32 @@ async function validateMcs(messageText, senderPhone, userName, API_CHECK_MCS_URL
   try {
     const response = await axios.get(`${API_CHECK_MCS_URL}?artikel=${artikel}`);
 
-    if (response.data.message === "Ada") {
-      return { success: true, message: `✅ MCS dengan artikel ${artikel} tersedia di rak ${response.data.data.no_rak}!` };
-    } else if (response.data.message === "Sedang dipinjam") {
-      return { 
-        success: false, 
-        message: `❌ MCS dengan artikel ${artikel} sedang dipinjam oleh ${response.data.borrower_name}.` 
-      };
-    } else {
-      return { success: false, message: `❌ ${response.data.message}` };
+    const data = response.data.data;
+
+    if (!Array.isArray(data) || data.length === 0) {
+      return { success: false, message: "❌ Data MCS tidak ditemukan." };
     }
+
+    // Buat respon berdasarkan status masing-masing MCS
+    let messages = [`📦 Hasil pengecekan untuk artikel *${artikel}*:`];
+
+    data.forEach(item => {
+      const statusMsg = item.message === "Ada"
+        ? `✅ *Tersedia* di rak ${item.no_rak}`
+        : item.message === "Sedang dipinjam"
+        ? `❌ *Dipinjam* oleh ${item.borrower_name} (ID: ${item.borrower_id})`
+        : `⚠️ Status tidak dikenali di rak ${item.no_rak}`;
+
+      messages.push(`• ID ${item.id} - ${statusMsg}`);
+    });
+
+    return { success: true, message: messages.join('\n') };
+
   } catch (error) {
     console.error("❌ Gagal mengecek Mcs:", error.message);
-    return { success: false, message: "❌ MCS Belum tersedia di QIP." };
+    return { success: false, message: "❌ MCS belum tersedia di QIP." };
   }
 }
+
 
 module.exports = validateMcs;
