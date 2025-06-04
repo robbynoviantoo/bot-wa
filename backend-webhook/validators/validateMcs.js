@@ -13,8 +13,7 @@ async function validateMcs(messageText, senderPhone, userName, API_CHECK_MCS_URL
 
   try {
     const response = await axios.get(`${API_CHECK_MCS_URL}?artikel=${artikel}`);
-
-    const data = response.data.data;
+    const { data, image_url } = response.data;
 
     if (!Array.isArray(data) || data.length === 0) {
       return { success: false, message: "❌ Data MCS tidak ditemukan." };
@@ -33,13 +32,17 @@ async function validateMcs(messageText, senderPhone, userName, API_CHECK_MCS_URL
       messages.push(`• ID ${item.id} - ${statusMsg}`);
     });
 
-    return { success: true, message: messages.join('\n') };
+    // Balikkan respon dengan gambar dikirim terpisah sekali
+    return {
+      success: true,
+      message: messages.join('\n'),
+      imageUrl: image_url && image_url.trim() !== "" ? image_url : null
+    };
 
   } catch (error) {
     console.error("❌ Gagal mengecek Mcs:", error.message);
     return { success: false, message: "❌ MCS belum tersedia di QIP." };
   }
 }
-
 
 module.exports = validateMcs;
