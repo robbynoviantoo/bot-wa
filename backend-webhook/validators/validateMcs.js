@@ -54,7 +54,7 @@ async function validateMcs(messageText, senderPhone, userName, API_CHECK_MCS_URL
     let messages = [`📦 Hasil pengecekan untuk artikel *${artikel}*:`];
     data.forEach(item => {
       const statusMsg = item.message === "Ada"
-        ? `✅ *Tersedia* di rak ${item.no_rak} Model: ${item.nama_model}`
+        ? `✅ *Tersedia* di rak ${item.no_rak}. Model: ${item.nama_model}`
         : item.message === "Sedang dipinjam"
         ? `❌ *Dipinjam* oleh ${item.borrower_name} (ID: ${item.borrower_id})`
         : `⚠️ Status tidak dikenali di rak ${item.no_rak}`;
