@@ -106,6 +106,7 @@ app.post("/webhook", authenticate, async (req, res) => {
   const basicAuthHeader = `Basic ${Buffer.from(process.env.APP_BASIC_AUTH).toString("base64")}`;
 
   try {
+    // Kirim pesan teks dulu
     await axios.post(
       WHATSAPP_API_URL,
       {
@@ -115,7 +116,40 @@ app.post("/webhook", authenticate, async (req, res) => {
       },
       { headers: { Authorization: basicAuthHeader } }
     );
-    console.log("✅ Balasan berhasil dikirim ke:", recipient);
+    console.log("✅ Balasan teks berhasil dikirim ke:", recipient);
+
+    // Jika ada imageUrl, kirim gambar
+    if (validationResult.imageUrl) {
+      // Misal kamu punya endpoint /send/image dengan format multipart/form-data
+      const FormData = require('form-data');
+      const form = new FormData();
+
+      form.append('phone', recipient);
+      form.append('caption', 'Gambar produk MCS');
+      form.append('view_once', 'false');
+      form.append('compress', 'false');
+
+      // Jika imageUrl adalah URL langsung, kamu perlu download dulu filenya ke buffer lalu kirim,
+      // tapi jika WhatsApp API-mu bisa menerima URL langsung (jarang),
+      // atau kamu harus download dulu. Contoh ini pakai URL langsung sebagai file stream:
+      // Jadi di sini kita download dulu gambarnya dengan axios (responseType: stream)
+      const imageResponse = await axios.get(validationResult.imageUrl, { responseType: 'stream' });
+      form.append('image', imageResponse.data, { filename: 'mcs.jpg' });
+
+      const headers = {
+        ...form.getHeaders(),
+        Authorization: basicAuthHeader,
+      };
+
+      const sendImageResponse = await axios.post(
+        'http://10.20.10.106:3000/send/image',
+        form,
+        { headers }
+      );
+
+      console.log("✅ Gambar berhasil dikirim ke:", recipient);
+    }
+
   } catch (error) {
     console.error("❌ Gagal mengirim balasan:", error.response?.data || error.message);
   }
