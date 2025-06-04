@@ -19,7 +19,7 @@ async function sendImage(imageUrl, senderPhone, artikel) {
     form.append("image", imageBuffer, fileName);
 
     const sendImageResponse = await axios.post(
-      "http://localhost:3000/send/image",
+      "http://10.20.10.106:3000/send/image",
       form,
       { headers: form.getHeaders() }
     );
