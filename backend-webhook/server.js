@@ -37,6 +37,37 @@ function authenticate(req, res, next) {
   next();
 }
 
+async function sendImage(imageUrl, recipientPhone, caption) {
+  try {
+    // Download image sebagai buffer
+    const imageResponse = await axios.get(imageUrl, { responseType: "arraybuffer" });
+    const imageBuffer = Buffer.from(imageResponse.data, "binary");
+    const fileName = imageUrl.split("/").pop() || "image.jpg";
+
+    const form = new FormData();
+    form.append("phone", recipientPhone);
+    form.append("caption", caption);
+    form.append("view_once", "false");
+    form.append("compress", "false");
+    form.append("image", imageBuffer, fileName);
+
+    const basicAuthHeader = `Basic ${Buffer.from(process.env.APP_BASIC_AUTH).toString("base64")}`;
+
+    const response = await axios.post("http://10.20.10.106:3000/send/image", form, {
+      headers: {
+        ...form.getHeaders(),
+        Authorization: basicAuthHeader,
+      },
+    });
+
+    return response.status === 200;
+  } catch (err) {
+    console.error("❌ Gagal kirim gambar:", err.message);
+    return false;
+  }
+}
+
+
 app.post("/webhook", authenticate, async (req, res) => {
   console.log("📩 Pesan diterima dari WhatsApp:", JSON.stringify(req.body, null, 2));
 
@@ -81,11 +112,8 @@ app.post("/webhook", authenticate, async (req, res) => {
 
   for (const { regex, handler, apiUrl, requiresToken } of messageHandlers) {
     if (regex.test(messageText)) {
-      console.log("✅ Format terdeteksi, menjalankan handler...");
-
       if (requiresToken && !userToken) {
-        console.log("❌ Token diperlukan, tetapi tidak ditemukan.");
-        validationResult = { success: false, message: "❌ Anda tidak memiliki izin untuk menggunakan perintah ini." };
+        validationResult = { success: false, message: "❌ Anda tidak memiliki izin." };
       } else {
         validationResult = requiresToken
           ? await handler(messageText, senderPhone, userToken, userName, apiUrl)
@@ -96,17 +124,14 @@ app.post("/webhook", authenticate, async (req, res) => {
   }
 
   if (!validationResult) {
-    console.log("⚠️ Tidak ada format yang cocok, abaikan pesan.");
     return res.status(200).json({ success: true });
   }
-
-  console.log("📤 Balasan:", validationResult.message);
 
   const recipient = groupId || senderPhone;
   const basicAuthHeader = `Basic ${Buffer.from(process.env.APP_BASIC_AUTH).toString("base64")}`;
 
   try {
-    // Kirim pesan teks dulu
+    // Kirim teks dulu
     await axios.post(
       WHATSAPP_API_URL,
       {
@@ -116,38 +141,19 @@ app.post("/webhook", authenticate, async (req, res) => {
       },
       { headers: { Authorization: basicAuthHeader } }
     );
+
     console.log("✅ Balasan teks berhasil dikirim ke:", recipient);
 
     // Jika ada imageUrl, kirim gambar
     if (validationResult.imageUrl) {
-      // Misal kamu punya endpoint /send/image dengan format multipart/form-data
-      const FormData = require('form-data');
-      const form = new FormData();
+      const caption = `📷 Gambar artikel untuk permintaan ${messageText}`;
+      const success = await sendImage(validationResult.imageUrl, recipient, caption);
 
-      form.append('phone', recipient);
-      form.append('caption', 'Gambar produk MCS');
-      form.append('view_once', 'false');
-      form.append('compress', 'false');
-
-      // Jika imageUrl adalah URL langsung, kamu perlu download dulu filenya ke buffer lalu kirim,
-      // tapi jika WhatsApp API-mu bisa menerima URL langsung (jarang),
-      // atau kamu harus download dulu. Contoh ini pakai URL langsung sebagai file stream:
-      // Jadi di sini kita download dulu gambarnya dengan axios (responseType: stream)
-      const imageResponse = await axios.get(validationResult.imageUrl, { responseType: 'stream' });
-      form.append('image', imageResponse.data, { filename: 'mcs.jpg' });
-
-      const headers = {
-        ...form.getHeaders(),
-        Authorization: basicAuthHeader,
-      };
-
-      const sendImageResponse = await axios.post(
-        'http://10.20.10.106:3000/send/image',
-        form,
-        { headers }
-      );
-
-      console.log("✅ Gambar berhasil dikirim ke:", recipient);
+      if (success) {
+        console.log("✅ Gambar berhasil dikirim ke:", recipient);
+      } else {
+        console.log("⚠️ Gagal mengirim gambar ke:", recipient);
+      }
     }
 
   } catch (error) {
