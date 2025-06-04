@@ -9,10 +9,14 @@ async function validateMcs(messageText, senderPhone, userName, API_CHECK_MCS_URL
   }
 
   const artikel = match[1];
+  const requestUrl = `${API_CHECK_MCS_URL}?artikel=${artikel}`;
   console.log(`✅ Permintaan pengecekan Mcs untuk artikel: ${artikel}`);
+  console.log(`🔗 Memanggil API URL: ${requestUrl}`);
 
   try {
-    const response = await axios.get(`${API_CHECK_MCS_URL}?artikel=${artikel}`);
+    const response = await axios.get(requestUrl);
+
+    console.log("📥 Response API:", response.data);
 
     const data = response.data.data;
     const imageUrl = response.data.image_url || null;

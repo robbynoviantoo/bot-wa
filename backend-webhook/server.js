@@ -6,6 +6,7 @@ const axios = require("axios");
 const messageHandlers = require("./handler"); // ✅ Import daftar handler
 const mongoose = require("mongoose");
 const UserToken = require("./models/UserToken");
+const FormData = require("form-data");
 
 const app = express();
 
@@ -39,8 +40,11 @@ function authenticate(req, res, next) {
 
 async function sendImage(imageUrl, recipientPhone, caption) {
   try {
-    // Download image sebagai buffer
+    console.log(`🔍 Mulai download gambar dari URL: ${imageUrl}`);
+
     const imageResponse = await axios.get(imageUrl, { responseType: "arraybuffer" });
+    console.log(`✅ Gambar berhasil didownload, ukuran: ${imageResponse.data.length} bytes`);
+
     const imageBuffer = Buffer.from(imageResponse.data, "binary");
     const fileName = imageUrl.split("/").pop() || "image.jpg";
 
@@ -53,16 +57,26 @@ async function sendImage(imageUrl, recipientPhone, caption) {
 
     const basicAuthHeader = `Basic ${Buffer.from(process.env.APP_BASIC_AUTH).toString("base64")}`;
 
+    console.log(`📤 Mengirim gambar ke: ${recipientPhone} dengan nama file: ${fileName}`);
+    
     const response = await axios.post("http://10.20.10.106:3000/send/image", form, {
       headers: {
         ...form.getHeaders(),
         Authorization: basicAuthHeader,
       },
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
     });
+
+    console.log(`✅ Response dari server kirim gambar: status ${response.status}`, response.data);
 
     return response.status === 200;
   } catch (err) {
-    console.error("❌ Gagal kirim gambar:", err.message);
+    if (err.response) {
+      console.error("❌ Gagal kirim gambar - Response error:", err.response.status, err.response.data);
+    } else {
+      console.error("❌ Gagal kirim gambar:", err.message);
+    }
     return false;
   }
 }
