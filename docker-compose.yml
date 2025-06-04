@@ -18,7 +18,7 @@ services:
     container_name: whatsapp_go
     restart: always
     ports:
-      - "3000:3000"
+      - "3020:3020"
     env_file:
       - ./whatsapp-go/src/.env
     networks:
