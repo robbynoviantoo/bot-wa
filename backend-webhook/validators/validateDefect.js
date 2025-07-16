@@ -1,5 +1,7 @@
 const axios = require("axios");
 
+const API_DEFECT_URL = "http://10.20.10.99/qip/api/defect-summary";
+
 /**
  * Fungsi untuk parsing tanggal dari input user
  * Mendukung format: YYYY-MM-DD dan DD-MM-YYYY
@@ -9,18 +11,18 @@ function parseTanggal(input) {
   const dmyRegex = /^\d{2}-\d{2}-\d{4}$/; // 16-07-2025
 
   if (ymdRegex.test(input)) {
-    return input; // Sudah sesuai format database
+    return input;
   }
 
   if (dmyRegex.test(input)) {
     const [day, month, year] = input.split("-");
-    return `${year}-${month}-${day}`; // Ubah ke format database
+    return `${year}-${month}-${day}`;
   }
 
-  return null; // Format tidak dikenali
+  return null;
 }
 
-async function validateDefect(messageText, API_DEFECT_URL) {
+async function validateDefect(messageText) {
   const regex = /^Defect\s+(\d{4}-\d{2}-\d{2}|\d{2}-\d{2}-\d{4})$/i;
   const match = messageText.match(regex);
 
