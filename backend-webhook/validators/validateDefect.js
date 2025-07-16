@@ -7,18 +7,14 @@ const API_DEFECT_URL = "http://10.20.10.99/qip/api/defect-summary";
  * Mendukung format: YYYY-MM-DD dan DD-MM-YYYY
  */
 function parseTanggal(input) {
-  const ymdRegex = /^\d{4}-\d{2}-\d{2}$/; // 2025-07-16
-  const dmyRegex = /^\d{2}-\d{2}-\d{4}$/; // 16-07-2025
+  const ymdRegex = /^\d{4}-\d{2}-\d{2}$/;
+  const dmyRegex = /^\d{2}-\d{2}-\d{4}$/;
 
-  if (ymdRegex.test(input)) {
-    return input;
-  }
-
+  if (ymdRegex.test(input)) return input;
   if (dmyRegex.test(input)) {
-    const [day, month, year] = input.split("-");
-    return `${year}-${month}-${day}`;
+    const [d, m, y] = input.split("-");
+    return `${y}-${m}-${d}`;
   }
-
   return null;
 }
 
@@ -44,7 +40,7 @@ async function validateDefect(messageText) {
   }
 
   const requestUrl = `${API_DEFECT_URL}?tanggal=${tanggal}`;
-  console.log(`✅ Permintaan Top 3 Defect tanggal: ${tanggal}`);
+  console.log(`✅ Permintaan Top 3 Defect B/C Grade tanggal: ${tanggal}`);
   console.log(`🔗 Memanggil API URL: ${requestUrl}`);
 
   try {
@@ -58,29 +54,38 @@ async function validateDefect(messageText) {
       };
     }
 
-    let messages = [`📊 *Top 3 Defect* untuk tanggal *${inputTanggal}*:`];
+    let partA = [`📊 *Top 3 Defect B/C Grade* untuk tanggal *${inputTanggal}* (Gedung A):`];
+    let partB = [`📊 *Top 3 Defect B/C Grade* untuk tanggal *${inputTanggal}* (Gedung B):`];
 
     for (const row of data) {
       const cell = row.cell || "Tidak diketahui";
       const topDefects = row.top_3_defects || [];
 
-      messages.push(`\n📍 *Cell ${cell}*`);
+      const building = cell.startsWith("A") ? "A" : cell.startsWith("B") ? "B" : "Lain";
+      const target = building === "A" ? partA : building === "B" ? partB : null;
+
+      if (!target) continue;
+
+      target.push(`\n📍 *Cell ${cell}*`);
 
       if (topDefects.length === 0) {
-        messages.push("  Tidak ada defect.");
+        target.push("  Tidak ada defect.");
         continue;
       }
 
       topDefects.forEach((defect, idx) => {
         const issue = defect.issue || "Tanpa Issue";
         const qty = typeof defect.total_qty === "number" ? defect.total_qty.toFixed(2) : "0.00";
-        messages.push(`${idx + 1}. ${issue} — ${qty} pasang`);
+        target.push(`${idx + 1}. ${issue} — ${qty} pasang`);
       });
     }
 
     return {
       success: true,
-      message: messages.join("\n"),
+      messages: [
+        partA.join("\n"), // bagian gedung A
+        partB.join("\n"), // bagian gedung B
+      ],
     };
 
   } catch (error) {
