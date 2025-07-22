@@ -1,14 +1,14 @@
 const axios = require("axios");
 
-const API_PIVOT_URL = "http://10.20.10.99/qip/api/pivot88/send-etd"; // ganti sesuai base URL API kamu
+const API_PIVOT_URL = "http://10.20.10.99/qip/api/pivot88/send-etd";
 
 /**
  * Fungsi untuk parsing tanggal dari input user
  * Mendukung format: YYYY-MM-DD dan DD-MM-YYYY
  */
 function parseTanggal(input) {
-  const ymdRegex = /^\d{4}-\d{2}-\d{2}$/; // 2025-07-16
-  const dmyRegex = /^\d{2}-\d{2}-\d{4}$/; // 16-07-2025
+  const ymdRegex = /^\d{4}-\d{2}-\d{2}$/;
+  const dmyRegex = /^\d{2}-\d{2}-\d{4}$/;
 
   if (ymdRegex.test(input)) return input;
 
@@ -45,7 +45,16 @@ async function validatePivotSend(messageText) {
   console.log(`🚀 Mengirim data Pivot88 untuk ID: ${id}, ETD: ${etd}`);
 
   try {
-    const response = await axios.post(API_PIVOT_URL, { id, etd });
+    const response = await axios.post(
+      API_PIVOT_URL,
+      { id, etd },
+      {
+        headers: {
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
     const result = response.data;
 
     if (result.success) {
