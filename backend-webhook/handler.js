@@ -4,6 +4,7 @@ const {
   validateMcs,
   validateEdit,
   validateDefect,
+  validatePivotSend,
 } = require("./validators");
 
 const messageHandlers = [
@@ -12,7 +13,13 @@ const messageHandlers = [
     apiUrl: process.env.API_VALIDATE_URL,
     requiresToken: true,
     handler: async (messageText, senderPhone, userToken, userName, apiUrl) => {
-      return await validateCode(messageText, senderPhone, userToken, userName, apiUrl);
+      return await validateCode(
+        messageText,
+        senderPhone,
+        userToken,
+        userName,
+        apiUrl
+      );
     },
   },
   {
@@ -20,7 +27,13 @@ const messageHandlers = [
     apiUrl: process.env.API_VALIDATE_EDIT_URL,
     requiresToken: true,
     handler: async (messageText, senderPhone, userToken, userName, apiUrl) => {
-      return await validateEdit(messageText, senderPhone, userToken, userName, apiUrl);
+      return await validateEdit(
+        messageText,
+        senderPhone,
+        userToken,
+        userName,
+        apiUrl
+      );
     },
   },
   {
@@ -28,7 +41,13 @@ const messageHandlers = [
     apiUrl: process.env.API_VALIDATE_URL_OT,
     requiresToken: true,
     handler: async (messageText, senderPhone, userToken, userName, apiUrl) => {
-      return await overtimeInput(messageText, senderPhone, userToken, userName, apiUrl);
+      return await overtimeInput(
+        messageText,
+        senderPhone,
+        userToken,
+        userName,
+        apiUrl
+      );
     },
   },
   {
@@ -52,7 +71,18 @@ const messageHandlers = [
     apiUrl: null,
     requiresToken: false,
     handler: async (messageText, senderPhone) => {
-      return { success: true, message: `📌 Halo ${senderPhone}, ini adalah pesan info.` };
+      return {
+        success: true,
+        message: `📌 Halo ${senderPhone}, ini adalah pesan info.`,
+      };
+    },
+  },
+  {
+    regex: /^Pivot\s+(\d+)\s+(\d{4}-\d{2}-\d{2}|\d{2}-\d{2}-\d{4})$/i,
+    apiUrl: process.env.API_PIVOT_SEND_URL,
+    requiresToken: true,
+    handler: async (messageText, senderPhone, _, __, apiUrl) => {
+      return await validatePivotSend(messageText, apiUrl);
     },
   },
   {

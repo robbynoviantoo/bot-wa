@@ -4,6 +4,7 @@ const validateMcs = require("./validateMcs");
 const overtimeInput = require("./overtimeInput");
 const validateEdit = require("./validateEdit");
 const validateDefect = require("./validateDefect");
+const validatePivotSend = require("./validatePivotSend");
 
 module.exports = {
   validateCode,
@@ -11,4 +12,5 @@ module.exports = {
   validateMcs,
   validateEdit,
   validateDefect,
+  validatePivotSend
 };
