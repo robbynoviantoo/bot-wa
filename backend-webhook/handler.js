@@ -79,10 +79,9 @@ const messageHandlers = [
   },
   {
     regex: /^Pivot\s+(\d+)\s+(\d{4}-\d{2}-\d{2}|\d{2}-\d{2}-\d{4})$/i,
-    apiUrl: process.env.API_PIVOT_SEND_URL,
     requiresToken: true,
-    handler: async (messageText, senderPhone, _, __, apiUrl) => {
-      return await validatePivotSend(messageText, apiUrl);
+    handler: async (messageText, senderPhone) => {
+      return await validatePivotSend(messageText);
     },
   },
   {

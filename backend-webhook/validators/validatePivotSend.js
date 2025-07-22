@@ -1,5 +1,6 @@
 const axios = require("axios");
 
+// URL API Pivot88
 const API_PIVOT_URL = "http://10.20.10.99/qip/api/pivot88/send-etd";
 
 /**
@@ -42,18 +43,10 @@ async function validatePivotSend(messageText) {
     };
   }
 
-  console.log(`🚀 Mengirim data Pivot88 untuk ID: ${id}, ETD: ${etd}`);
+  console.log(`🚀 Mengirim data ke Pivot88: ID = ${id}, ETD = ${etd}`);
 
   try {
-    const response = await axios.post(
-      API_PIVOT_URL,
-      { id, etd },
-      {
-        headers: {
-          "Content-Type": "application/json"
-        }
-      }
-    );
+    const response = await axios.get(`${API_PIVOT_URL}?id=${id}&etd=${etd}`);
 
     const result = response.data;
 
