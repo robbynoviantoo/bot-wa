@@ -46,7 +46,7 @@ async function validatePivotSend(messageText) {
   console.log(`🚀 Mengirim data ke Pivot88: ID = ${id}, ETD = ${etd}`);
 
   try {
-    const response = await axios.get(`${API_PIVOT_URL}?id=${id}&etd=${etd}`);
+    const response = await axios.post(API_PIVOT_URL, { id, etd });
 
     const result = response.data;
 
