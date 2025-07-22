@@ -21,7 +21,7 @@ function parseTanggal(input) {
   return null;
 }
 
-async function validatePivotSend(messageText) {
+async function validatePivotSend(messageText, userToken) {
   const regex = /^Pivot\s+(\d+)\s+(\d{4}-\d{2}-\d{2}|\d{2}-\d{2}-\d{4})$/i;
   const match = messageText.match(regex);
 
@@ -44,9 +44,18 @@ async function validatePivotSend(messageText) {
   }
 
   console.log(`🚀 Mengirim data ke Pivot88: ID = ${id}, ETD = ${etd}`);
+  console.log(`🔐 Token digunakan: ${userToken}`);
 
   try {
-    const response = await axios.post(API_PIVOT_URL, { id, etd });
+    const response = await axios.post(
+      API_PIVOT_URL,
+      { id, etd },
+      {
+        headers: {
+          Authorization: `Bearer ${userToken}`,
+        },
+      }
+    );
 
     const result = response.data;
 
@@ -66,7 +75,7 @@ async function validatePivotSend(messageText) {
     console.error("❌ Error saat kirim ke Pivot88:", error.message);
     return {
       success: false,
-      message: "❌ Gagal mengirim ke Pivot88. Periksa koneksi atau format data.",
+      message: `❌ Gagal mengirim ke Pivot88: ${error.message}`,
     };
   }
 }

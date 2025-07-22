@@ -80,8 +80,8 @@ const messageHandlers = [
   {
     regex: /^Pivot\s+(\d+)\s+(\d{4}-\d{2}-\d{2}|\d{2}-\d{2}-\d{4})$/i,
     requiresToken: true,
-    handler: async (messageText, senderPhone) => {
-      return await validatePivotSend(messageText);
+    handler: async (messageText, senderPhone, userToken, userName, apiUrl) => {
+      return await validatePivotSend(messageText, userToken);
     },
   },
   {
