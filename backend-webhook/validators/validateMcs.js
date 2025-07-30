@@ -1,11 +1,19 @@
 const axios = require("axios");
 
-async function validateMcs(messageText, senderPhone, userName, API_CHECK_MCS_URL) {
+async function validateMcs(
+  messageText,
+  senderPhone,
+  userName,
+  API_CHECK_MCS_URL
+) {
   const regex = /^Mcs\s+(\S+)$/i;
   const match = messageText.match(regex);
 
   if (!match) {
-    return { success: false, message: "⚠️ Format pesan tidak sesuai. Gunakan: Mcs [Artikel]" };
+    return {
+      success: false,
+      message: "⚠️ Format pesan tidak sesuai. Gunakan: Mcs [Artikel]",
+    };
   }
 
   const artikel = match[1];
@@ -19,31 +27,43 @@ async function validateMcs(messageText, senderPhone, userName, API_CHECK_MCS_URL
     console.log("📥 Response API:", response.data);
 
     const data = response.data.data;
-    const imageUrl = response.data.image_url || null;
+    let imageUrl = response.data.image_url || null;
 
     if (!Array.isArray(data) || data.length === 0) {
       return { success: false, message: "❌ Data MCS tidak ditemukan." };
     }
 
-    // Buat respon berdasarkan status masing-masing MCS
     let messages = [`📦 Hasil pengecekan untuk artikel *${artikel}*:`];
 
-    data.forEach(item => {
-      const statusMsg = item.message === "Ada"
-        ? `✅ *Tersedia* di rak ${item.no_rak}, *Model*: ${item.nama_model}, *Type*: ${item.name}`
-        : item.message === "Sedang dipinjam"
-        ? `❌ *Dipinjam* oleh ${item.borrower_name || "?"}, ( *Area*: ${item.borrower_cell || "?"} *Type*: ${item.name} )`
-        : `⚠️ Status tidak dikenali di rak ${item.no_rak}`;
+    // Cek jika ada data expired, maka jangan kirim gambar
+    const hasExpired = data.some((item) => item.status === "expired");
+    if (hasExpired) {
+      imageUrl = null;
+    }
+
+    data.forEach((item) => {
+      let statusMsg = "";
+
+      if (item.message === "Ada") {
+        statusMsg = `✅ *Tersedia* di rak ${item.no_rak}, *Model*: ${item.nama_model}, *Type*: ${item.name}`;
+      } else if (item.message === "Sedang dipinjam") {
+        statusMsg = `❌ *Dipinjam* oleh ${
+          item.borrower_name || "?"
+        }, ( *Area*: ${item.borrower_cell || "?"} *Type*: ${item.name} )`;
+      } else if (item.status === "expired") {
+        statusMsg = `⏳ *Expired* di rak ${item.no_rak} (❌ *Tidak bisa dipinjam*)`;
+      } else {
+        statusMsg = `⚠️ Status tidak dikenali di rak ${item.no_rak}`;
+      }
 
       messages.push(`• ID ${item.id} - ${statusMsg}`);
     });
 
-    return { 
-      success: true, 
-      message: messages.join('\n'), 
-      imageUrl // kirim imageUrl ke caller
+    return {
+      success: true,
+      message: messages.join("\n"),
+      imageUrl,
     };
-
   } catch (error) {
     console.error("❌ Gagal mengecek Mcs:", error.message);
     return { success: false, message: "❌ MCS belum tersedia di QIP." };
