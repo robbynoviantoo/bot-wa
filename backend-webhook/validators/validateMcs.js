@@ -66,7 +66,7 @@ async function validateMcs(
     };
   } catch (error) {
     console.error("❌ Gagal mengecek Mcs:", error.message);
-    return { success: false, message: "❌ MCS belum tersedia di QIP." };
+    return { success: false, message: "❌ MCS belum tersedia." };
   }
 }
 
