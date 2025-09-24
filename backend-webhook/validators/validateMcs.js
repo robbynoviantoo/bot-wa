@@ -47,7 +47,7 @@ async function validateMcs(
       if (item.message === "Ada") {
         statusMsg = `✅ *Tersedia* di rak ${item.no_rak}, *Model*: ${item.nama_model}, *Type*: ${item.name}`;
       } else if (item.message === "Sedang dipinjam") {
-        statusMsg = `❌ *Dipinjam* oleh ${
+        statusMsg = `❌ Milik *${item.kategori}* *Dipinjam* oleh ${
           item.borrower_name || "?"
         }, ( *Area*: ${item.borrower_cell || "?"} *Type*: ${item.name} )`;
       } else if (item.status === "expired") {
