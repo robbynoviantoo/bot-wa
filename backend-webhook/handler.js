@@ -59,6 +59,14 @@ const messageHandlers = [
     },
   },
   {
+    regex: /^SB\s+(\S+)$/i,
+    apiUrl: process.env.API_CHECK_SWATCHBOOK_URL,
+    requiresToken: false,
+    handler: async (messageText, senderPhone, _, userName, apiUrl) => {
+      return await validateSwatchbook(messageText, senderPhone, userName, apiUrl);
+    },
+  },
+  {
     regex: /^Defect\s+(\d{4}-\d{2}-\d{2}|\d{2}-\d{2}-\d{4})$/i,
     apiUrl: process.env.API_DEFECT_URL,
     requiresToken: false,
@@ -96,6 +104,7 @@ const messageHandlers = [
           "✅ `V <kode>` - Validasi kode\n" +
           "✅ `RE <kode>` - Edit kode\n" +
           "📦 `Mcs <artikel>` - Cek status MCS\n" +
+          "📦 `SB <artikel>` - Cek status Swatchbook\n" +
           "🕒 `OT {Area}, Sabtu:{0/1}, {NIK}, {Waktu}` - Input lembur\n" +
           "📊 `Defect <tanggal>` - Cek top 3 defect harian (format: YYYY-MM-DD / DD-MM-YYYY)\n" +
           "ℹ️ `INFO` - Dapatkan informasi\n" +
