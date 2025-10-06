@@ -5,6 +5,7 @@ const {
   validateEdit,
   validateDefect,
   validatePivotSend,
+  validateSwatchbook
 } = require("./validators");
 
 const messageHandlers = [
