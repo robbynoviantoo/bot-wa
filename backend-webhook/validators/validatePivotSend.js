@@ -1,7 +1,7 @@
 const axios = require("axios");
 
 // URL API Pivot88
-const API_PIVOT_URL = "http://10.20.10.99/qip/api/pivot88/send-etd";
+const API_PIVOT_URL = "http://10.20.10.99/api/pivot88/send-etd";
 
 /**
  * Fungsi untuk parsing tanggal dari input user

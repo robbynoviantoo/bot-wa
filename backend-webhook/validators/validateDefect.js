@@ -1,6 +1,6 @@
 const axios = require("axios");
 
-const API_DEFECT_URL = "http://10.20.10.99/qip/api/defect-summary";
+const API_DEFECT_URL = "http://10.20.10.99/api/defect-summary";
 
 /**
  * Fungsi untuk parsing tanggal dari input user
