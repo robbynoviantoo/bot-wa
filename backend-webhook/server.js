@@ -42,10 +42,15 @@ async function sendImage(imageUrl, recipientPhone, caption) {
   try {
     console.log(`🔍 Mulai download gambar dari URL: ${imageUrl}`);
 
-    const imageResponse = await axios.get(imageUrl, { responseType: "arraybuffer" });
-    console.log(`✅ Gambar berhasil didownload, ukuran: ${imageResponse.data.length} bytes`);
+    const imageResponse = await axios.get(imageUrl, {
+      responseType: "arraybuffer",
+    });
 
-    const imageBuffer = Buffer.from(imageResponse.data, "binary");
+    console.log(
+      `✅ Gambar berhasil didownload, ukuran: ${imageResponse.data.length} bytes`
+    );
+
+    const imageBuffer = Buffer.from(imageResponse.data);
     const fileName = imageUrl.split("/").pop() || "image.jpg";
 
     const form = new FormData();
@@ -55,25 +60,41 @@ async function sendImage(imageUrl, recipientPhone, caption) {
     form.append("compress", "false");
     form.append("image", imageBuffer, fileName);
 
-    const basicAuthHeader = `Basic ${Buffer.from(process.env.APP_BASIC_AUTH).toString("base64")}`;
+    const basicAuthHeader = `Basic ${Buffer.from(
+      process.env.APP_BASIC_AUTH
+    ).toString("base64")}`;
 
-    console.log(`📤 Mengirim gambar ke: ${recipientPhone} dengan nama file: ${fileName}`);
-    
-    const response = await axios.post("http://10.20.10.106:3000/send/image", form, {
-      headers: {
-        ...form.getHeaders(),
-        Authorization: basicAuthHeader,
-      },
-      maxContentLength: Infinity,
-      maxBodyLength: Infinity,
-    });
+    console.log(
+      `📤 Mengirim gambar ke: ${recipientPhone} dengan nama file: ${fileName}`
+    );
 
-    console.log(`✅ Response dari server kirim gambar: status ${response.status}`, response.data);
+    const response = await axios.post(
+      "http://10.20.10.106:3000/send/image",
+      form,
+      {
+        headers: {
+          ...form.getHeaders(),
+          Authorization: basicAuthHeader,
+          "X-Device-Id": deviceId, // ⬅️ DITAMBAHKAN
+        },
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+      }
+    );
+
+    console.log(
+      `✅ Response dari server kirim gambar: status ${response.status}`,
+      response.data
+    );
 
     return response.status === 200;
   } catch (err) {
     if (err.response) {
-      console.error("❌ Gagal kirim gambar - Response error:", err.response.status, err.response.data);
+      console.error(
+        "❌ Gagal kirim gambar - Response error:",
+        err.response.status,
+        err.response.data
+      );
     } else {
       console.error("❌ Gagal kirim gambar:", err.message);
     }
@@ -82,11 +103,22 @@ async function sendImage(imageUrl, recipientPhone, caption) {
 }
 
 
+
 app.post("/webhook", authenticate, async (req, res) => {
   console.log("📩 Pesan diterima dari WhatsApp:", JSON.stringify(req.body, null, 2));
 
-  const senderRaw = req.body?.from || "";
-  const messageText = req.body?.message?.text?.trim() || "";
+
+  const deviceId = "2d945b64-4936-4bdf-bc15-4e988588c01e"
+  const senderRaw =
+    req.body?.from ||
+    req.body?.payload?.from ||
+    req.body?.payload?.chat_id ||
+    "";
+
+  const messageText =
+    req.body?.payload?.body?.trim() ||   // STRUKTUR BARU
+    req.body?.message?.text?.trim() ||   // STRUKTUR LAMA
+    "";
 
   if (!messageText) {
     console.log("⚠️ Tidak ada teks pesan, abaikan.");
@@ -151,9 +183,17 @@ app.post("/webhook", authenticate, async (req, res) => {
       {
         phone: recipient,
         message: validationResult.message,
-        reply_message_id: req.body?.message?.id || "",
+        reply_message_id:
+          req.body?.payload?.id ||
+          req.body?.message?.id ||
+          "",
       },
-      { headers: { Authorization: basicAuthHeader } }
+      {
+        headers: {
+          Authorization: basicAuthHeader,
+          "X-Device-Id": deviceId,
+        },
+      }
     );
 
     console.log("✅ Balasan teks berhasil dikirim ke:", recipient);
