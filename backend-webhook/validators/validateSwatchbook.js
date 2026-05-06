@@ -36,6 +36,14 @@ async function validateSwatchbook(
 
     let messages = [`📦 Hasil pengecekan untuk artikel *${artikel}*:`];
 
+    /*
+    // Cek jika ada data expired, maka jangan kirim gambar
+    const hasExpired = data.some((item) => item.status === "expired");
+    if (hasExpired) {
+      imageUrl = null;
+    }
+    */
+
     data.forEach((item) => {
       let statusMsg = "";
 
