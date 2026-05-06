@@ -27,19 +27,14 @@ async function validateMcs(
     console.log("📥 Response API:", response.data);
 
     const data = response.data.data;
-    let imageUrl = response.data.image_url || null;
+    // Image di-hidden sementara dari API
+    const imageUrl = response.data.image_url || null;
 
     if (!Array.isArray(data) || data.length === 0) {
       return { success: false, message: "❌ Data MCS tidak ditemukan." };
     }
 
     let messages = [`📦 Hasil pengecekan untuk artikel *${artikel}*:`];
-
-    // Cek jika ada data expired, maka jangan kirim gambar
-    const hasExpired = data.some((item) => item.status === "expired");
-    if (hasExpired) {
-      imageUrl = null;
-    }
 
     data.forEach((item) => {
       let statusMsg = "";
@@ -65,8 +60,21 @@ async function validateMcs(
       imageUrl,
     };
   } catch (error) {
+    if (error.response) {
+      // Handle pembatasan jam kerja (403)
+      if (error.response.status === 403) {
+        return {
+          success: false,
+          message: `⏳ ${error.response.data.message || "API hanya aktif pada jam kerja."}`,
+        };
+      }
+      // Handle data tidak ditemukan (404)
+      if (error.response.status === 404) {
+        return { success: false, message: `❌ Artikel *${artikel}* tidak ditemukan di MCS.` };
+      }
+    }
     console.error("❌ Gagal mengecek Mcs:", error.message);
-    return { success: false, message: "❌ MCS belum tersedia." };
+    return { success: false, message: "❌ MCS belum tersedia atau terjadi kesalahan sistem." };
   }
 }
 
