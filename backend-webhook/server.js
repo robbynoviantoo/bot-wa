@@ -124,13 +124,31 @@ function getVideoApiUrl() {
   return `${getWhatsappApiOrigin()}/send/video`;
 }
 
+function isValidDeviceId(value) {
+  if (!value || typeof value !== "string") return false;
+  const trimmed = value.trim();
+
+  if (!trimmed) return false;
+  if (trimmed.includes("@")) return false;
+  if (/^\d+$/.test(trimmed)) return false;
+
+  return true;
+}
+
 function getWebhookDeviceId(body) {
-  return (
-    body?.device_id ||
-    body?.payload?.device_id ||
-    body?.device?.id ||
-    DEVICE_ID
-  );
+  const candidates = [
+    body?.device_id,
+    body?.payload?.device_id,
+    body?.device?.id,
+    DEVICE_ID,
+  ];
+
+  const deviceId = candidates.find(isValidDeviceId);
+  if (!deviceId) {
+    console.warn("X-Device-Id tidak valid. Isi WHATSAPP_DEVICE_ID di .env dengan device id dari WhatsApp API.");
+  }
+
+  return deviceId || DEVICE_ID;
 }
 
 function getIncomingMedia(body, isVideo) {
