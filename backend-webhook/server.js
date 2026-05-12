@@ -22,7 +22,9 @@ const WHATSAPP_API_URL = process.env.WHATSAPP_API_URL;
 const BASIC_AUTH_USERS = process.env.APP_BASIC_AUTH.split(",");
 const USER_TOKENS = JSON.parse(process.env.USER_TOKENS || "{}");
 const DEVICE_ID = process.env.WHATSAPP_DEVICE_ID || "2d945b64-4936-4bdf-bc15-4e988588c01e";
-const WHATSAPP_API_BASE = process.env.WHATSAPP_API_BASE;
+const WHATSAPP_API_BASE =
+  process.env.WHATSAPP_API_BASE ||
+  new URL(WHATSAPP_API_URL || "http://10.20.10.106:3000/send/message").origin;
 
 const userCooldown = new Map();
 const COOLDOWN_MS = 10 * 1000; // 10 detik
@@ -46,7 +48,6 @@ function authenticate(req, res, next) {
 }
 
 async function sendImage(imageUrl, recipientPhone, caption) {
-  const deviceId = "asolole";
   try {
     console.log(`🔍 Mulai download gambar dari URL: ${imageUrl}`);
 
@@ -77,7 +78,7 @@ async function sendImage(imageUrl, recipientPhone, caption) {
     );
 
     const response = await axios.post(
-      "http://10.20.10.106:3000/send/image",
+      `${getWhatsappApiOrigin()}/send/image`,
       form,
       {
         headers: {
@@ -205,19 +206,21 @@ async function sendGifPlaybackFromVideo(mediaUrl, recipientPhone) {
 app.post("/webhook", authenticate, async (req, res) => {
 
 
-  const deviceId = DEVICE_ID
+  let deviceId = DEVICE_ID
   const senderRaw =
     req.body?.from ||
     req.body?.payload?.from ||
     req.body?.payload?.chat_id ||
     "";
 
-  const messageText = getIncomingCommand(req.body);
+  let messageText = getIncomingCommand(req.body);
 
   if (!messageText) {
     console.log("⚠️ Tidak ada teks pesan, abaikan.");
+    return res.status(200).json({ success: true });
+  }
   // 1️⃣ HANYA PROSES EVENT MESSAGE
-  if (req.body?.event !== "message") {
+  if (req.body?.event && req.body.event !== "message") {
     return res.status(200).json({ success: true });
   }
 
@@ -226,19 +229,21 @@ app.post("/webhook", authenticate, async (req, res) => {
   console.log("📩 Pesan diterima dari WhatsApp:", JSON.stringify(req.body, null, 2));
 
   // 2️⃣ VALIDASI PAYLOAD
-  if (!payload.id || !payload.from || !payload.body) {
+  if (!senderRaw) {
     return res.status(200).json({ success: true });
   }
 
   // 3️⃣ CEGAH DUPLIKASI MESSAGE ID
-  if (processedMessages.has(payload.id)) {
+  if (payload.id && processedMessages.has(payload.id)) {
     console.log("🔁 Pesan duplikat diabaikan:", payload.id);
     return res.status(200).json({ success: true });
   }
-  processedMessages.add(payload.id);
-  setTimeout(() => processedMessages.delete(payload.id), 5 * 60 * 1000);
+  if (payload.id) {
+    processedMessages.add(payload.id);
+    setTimeout(() => processedMessages.delete(payload.id), 5 * 60 * 1000);
+  }
 
-  const deviceId = "asolole";
+  deviceId = DEVICE_ID;
 
   // 4️⃣ CEGAH PESAN DARI BOT SENDIRI
   if (
@@ -248,19 +253,25 @@ app.post("/webhook", authenticate, async (req, res) => {
     return res.status(200).json({ success: true });
   }
 
-  let senderPhone = payload.from;
-  const chatId = payload.chat_id || senderPhone;
+  let senderPhone = payload.from || senderRaw;
+  let chatId = payload.chat_id || senderPhone;
+  if (senderPhone.includes(" in ")) {
+    const senderParts = senderPhone.split(" in ");
+    senderPhone = senderParts[0];
+    chatId = senderParts[1] || chatId;
+  }
   const isGroup = chatId.endsWith("@g.us");
   const groupId = isGroup ? chatId : null;
 
-  if (!senderPhone.endsWith("@s.whatsapp.net")) {
+  senderPhone = senderPhone.split(":")[0];
+  if (!senderPhone.includes("@")) {
     senderPhone += "@s.whatsapp.net";
   }
 
   console.log(`👤 Pengirim: ${senderPhone}, 📢 Chat: ${isGroup ? "Grup" : "Pribadi"}`);
 
   // 5️⃣ AMBIL TEXT HANYA DARI payload.body
-  const messageText = payload.body.trim();
+  messageText = getIncomingCommand(req.body);
 
   if (!messageText) {
     return res.status(200).json({ success: true });
@@ -278,7 +289,7 @@ app.post("/webhook", authenticate, async (req, res) => {
   // set cooldown 10 detik
   userCooldown.set(senderPhone, now + COOLDOWN_MS);
 
-  const recipient = groupId || senderPhone;
+  let recipient = groupId || senderPhone;
   const normalizedCommand = messageText.toLowerCase();
 
   if (normalizedCommand === "sticker" || normalizedCommand === "stickergif") {
@@ -354,7 +365,7 @@ app.post("/webhook", authenticate, async (req, res) => {
   }
 
   const basicAuthHeader = `Basic ${Buffer.from(process.env.APP_BASIC_AUTH).toString("base64")}`;
-  const recipient = groupId || senderPhone;
+  recipient = groupId || senderPhone;
   const headers = {
     Authorization: `Basic ${Buffer.from(process.env.APP_BASIC_AUTH).toString("base64")}`,
     "X-Device-Id": deviceId,
