@@ -106,6 +106,8 @@ const messageHandlers = [
           "✅ `RE <kode>` - Edit kode\n" +
           "📦 `Mcs <artikel>` - Cek status MCS\n" +
           "📦 `SB <artikel>` - Cek status Swatchbook\n" +
+          "🖼️ `sticker` sebagai caption gambar - Buat stiker dari gambar\n" +
+          "🎞️ `stickergif` sebagai caption video - Buat stiker bergerak dari video\n" +
           "🕒 `OT {Area}, Sabtu:{0/1}, {NIK}, {Waktu}` - Input lembur\n" +
           "📊 `Defect <tanggal>` - Cek top 3 defect harian (format: YYYY-MM-DD / DD-MM-YYYY)\n" +
           "ℹ️ `INFO` - Dapatkan informasi\n" +

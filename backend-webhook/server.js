@@ -19,6 +19,7 @@ const API_VALIDATE_URL_OT = process.env.API_VALIDATE_URL_OT;
 const WHATSAPP_API_URL = process.env.WHATSAPP_API_URL;
 const BASIC_AUTH_USERS = process.env.APP_BASIC_AUTH.split(",");
 const USER_TOKENS = JSON.parse(process.env.USER_TOKENS || "{}");
+const DEVICE_ID = process.env.WHATSAPP_DEVICE_ID || "2d945b64-4936-4bdf-bc15-4e988588c01e";
 
 function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -75,7 +76,7 @@ async function sendImage(imageUrl, recipientPhone, caption) {
         headers: {
           ...form.getHeaders(),
           Authorization: basicAuthHeader,
-          "X-Device-Id": deviceId, // ⬅️ DITAMBAHKAN
+          "X-Device-Id": DEVICE_ID,
         },
         maxContentLength: Infinity,
         maxBodyLength: Infinity,
@@ -102,23 +103,111 @@ async function sendImage(imageUrl, recipientPhone, caption) {
   }
 }
 
+function getWhatsappApiOrigin() {
+  const fallbackUrl = "http://10.20.10.106:3000/send/message";
+  return new URL(process.env.WHATSAPP_API_URL || fallbackUrl).origin;
+}
+
+function getStickerApiUrl() {
+  return `${getWhatsappApiOrigin()}/send/sticker`;
+}
+
+function getVideoApiUrl() {
+  return `${getWhatsappApiOrigin()}/send/video`;
+}
+
+function getMediaStaticUrl(media) {
+  const mediaPath = media?.media_path || media?.url || media?.media_url;
+  if (!mediaPath) return null;
+  if (/^https?:\/\//i.test(mediaPath)) return mediaPath;
+
+  const normalizedPath = mediaPath.replace(/\\/g, "/").replace(/^\/+/, "");
+  const staticPath = normalizedPath.startsWith("statics/")
+    ? normalizedPath
+    : `statics/${normalizedPath}`;
+
+  return `${getWhatsappApiOrigin()}/${staticPath}`;
+}
+
+function getIncomingCommand(body) {
+  return (
+    body?.payload?.body?.trim() ||
+    body?.message?.text?.trim() ||
+    body?.image?.caption?.trim() ||
+    body?.video?.caption?.trim() ||
+    ""
+  );
+}
+
+async function sendStickerFromImage(mediaUrl, recipientPhone) {
+  const basicAuthHeader = `Basic ${Buffer.from(
+    process.env.APP_BASIC_AUTH
+  ).toString("base64")}`;
+  const form = new FormData();
+  form.append("phone", recipientPhone);
+  form.append("sticker_url", mediaUrl);
+  form.append("is_forwarded", "false");
+
+  const response = await axios.post(
+    getStickerApiUrl(),
+    form,
+    {
+      headers: {
+        ...form.getHeaders(),
+        Authorization: basicAuthHeader,
+        "X-Device-Id": DEVICE_ID,
+      },
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
+    }
+  );
+
+  return response.status === 200;
+}
+
+async function sendGifPlaybackFromVideo(mediaUrl, recipientPhone) {
+  const basicAuthHeader = `Basic ${Buffer.from(
+    process.env.APP_BASIC_AUTH
+  ).toString("base64")}`;
+  const form = new FormData();
+  form.append("phone", recipientPhone);
+  form.append("video_url", mediaUrl);
+  form.append("gif_playback", "true");
+  form.append("compress", "false");
+  form.append("view_once", "false");
+  form.append("is_forwarded", "false");
+
+  const response = await axios.post(
+    getVideoApiUrl(),
+    form,
+    {
+      headers: {
+        ...form.getHeaders(),
+        Authorization: basicAuthHeader,
+        "X-Device-Id": DEVICE_ID,
+      },
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
+    }
+  );
+
+  return response.status === 200;
+}
+
 
 
 app.post("/webhook", authenticate, async (req, res) => {
   console.log("📩 Pesan diterima dari WhatsApp:", JSON.stringify(req.body, null, 2));
 
 
-  const deviceId = "2d945b64-4936-4bdf-bc15-4e988588c01e"
+  const deviceId = DEVICE_ID
   const senderRaw =
     req.body?.from ||
     req.body?.payload?.from ||
     req.body?.payload?.chat_id ||
     "";
 
-  const messageText =
-    req.body?.payload?.body?.trim() ||   // STRUKTUR BARU
-    req.body?.message?.text?.trim() ||   // STRUKTUR LAMA
-    "";
+  const messageText = getIncomingCommand(req.body);
 
   if (!messageText) {
     console.log("⚠️ Tidak ada teks pesan, abaikan.");
@@ -139,6 +228,55 @@ app.post("/webhook", authenticate, async (req, res) => {
     : senderParts[0] + "@s.whatsapp.net";
 
   console.log(`👤 Pengirim: ${senderPhone}, 📢 Grup: ${groupId || "Bukan Grup"}`);
+
+  const recipient = groupId || senderPhone;
+  const normalizedCommand = messageText.toLowerCase();
+
+  if (normalizedCommand === "sticker" || normalizedCommand === "stickergif") {
+    const isAnimated = normalizedCommand === "stickergif";
+    const media = isAnimated ? req.body?.video : req.body?.image;
+    const mediaUrl = getMediaStaticUrl(media);
+    const basicAuthHeader = `Basic ${Buffer.from(process.env.APP_BASIC_AUTH).toString("base64")}`;
+
+    if (!mediaUrl) {
+      const message = isAnimated
+        ? "Kirim video dengan caption `stickergif` untuk membuat stiker bergerak."
+        : "Kirim gambar dengan caption `sticker` untuk membuat stiker.";
+
+      await axios.post(
+        WHATSAPP_API_URL,
+        {
+          phone: recipient,
+          message,
+          reply_message_id:
+            req.body?.payload?.id ||
+            req.body?.message?.id ||
+            "",
+        },
+        {
+          headers: {
+            Authorization: basicAuthHeader,
+            "X-Device-Id": deviceId,
+          },
+        }
+      );
+
+      return res.status(200).json({ success: true });
+    }
+
+    try {
+      if (isAnimated) {
+        await sendGifPlaybackFromVideo(mediaUrl, recipient);
+      } else {
+        await sendStickerFromImage(mediaUrl, recipient);
+      }
+      console.log("Sticker/GIF berhasil dikirim ke:", recipient);
+    } catch (error) {
+      console.error("Gagal membuat sticker/GIF:", error.response?.data || error.message);
+    }
+
+    return res.status(200).json({ success: true });
+  }
 
   let userToken = null;
   let userName = senderPhone;
@@ -173,7 +311,6 @@ app.post("/webhook", authenticate, async (req, res) => {
     return res.status(200).json({ success: true });
   }
 
-  const recipient = groupId || senderPhone;
   const basicAuthHeader = `Basic ${Buffer.from(process.env.APP_BASIC_AUTH).toString("base64")}`;
 
   try {
