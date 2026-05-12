@@ -47,7 +47,7 @@ function authenticate(req, res, next) {
   next();
 }
 
-async function sendImage(imageUrl, recipientPhone, caption) {
+async function sendImage(imageUrl, recipientPhone, caption, deviceId = DEVICE_ID) {
   try {
     console.log(`🔍 Mulai download gambar dari URL: ${imageUrl}`);
 
@@ -84,7 +84,7 @@ async function sendImage(imageUrl, recipientPhone, caption) {
         headers: {
           ...form.getHeaders(),
           Authorization: basicAuthHeader,
-          "X-Device-Id": DEVICE_ID,
+          "X-Device-Id": deviceId,
         },
         maxContentLength: Infinity,
         maxBodyLength: Infinity,
@@ -124,6 +124,25 @@ function getVideoApiUrl() {
   return `${getWhatsappApiOrigin()}/send/video`;
 }
 
+function getWebhookDeviceId(body) {
+  return (
+    body?.device_id ||
+    body?.payload?.device_id ||
+    body?.device?.id ||
+    DEVICE_ID
+  );
+}
+
+function getIncomingMedia(body, isVideo) {
+  return (
+    (isVideo ? body?.video : body?.image) ||
+    (isVideo ? body?.payload?.video : body?.payload?.image) ||
+    body?.payload?.media ||
+    body?.media ||
+    null
+  );
+}
+
 function getMediaStaticUrl(media) {
   const mediaPath = media?.media_path || media?.url || media?.media_url;
   if (!mediaPath) return null;
@@ -140,14 +159,17 @@ function getMediaStaticUrl(media) {
 function getIncomingCommand(body) {
   return (
     body?.payload?.body?.trim() ||
+    body?.payload?.caption?.trim() ||
     body?.message?.text?.trim() ||
     body?.image?.caption?.trim() ||
+    body?.payload?.image?.caption?.trim() ||
     body?.video?.caption?.trim() ||
+    body?.payload?.video?.caption?.trim() ||
     ""
   );
 }
 
-async function sendStickerFromImage(mediaUrl, recipientPhone) {
+async function sendStickerFromImage(mediaUrl, recipientPhone, deviceId = DEVICE_ID) {
   const basicAuthHeader = `Basic ${Buffer.from(
     process.env.APP_BASIC_AUTH
   ).toString("base64")}`;
@@ -163,7 +185,7 @@ async function sendStickerFromImage(mediaUrl, recipientPhone) {
       headers: {
         ...form.getHeaders(),
         Authorization: basicAuthHeader,
-        "X-Device-Id": DEVICE_ID,
+        "X-Device-Id": deviceId,
       },
       maxContentLength: Infinity,
       maxBodyLength: Infinity,
@@ -173,7 +195,7 @@ async function sendStickerFromImage(mediaUrl, recipientPhone) {
   return response.status === 200;
 }
 
-async function sendGifPlaybackFromVideo(mediaUrl, recipientPhone) {
+async function sendGifPlaybackFromVideo(mediaUrl, recipientPhone, deviceId = DEVICE_ID) {
   const basicAuthHeader = `Basic ${Buffer.from(
     process.env.APP_BASIC_AUTH
   ).toString("base64")}`;
@@ -192,7 +214,7 @@ async function sendGifPlaybackFromVideo(mediaUrl, recipientPhone) {
       headers: {
         ...form.getHeaders(),
         Authorization: basicAuthHeader,
-        "X-Device-Id": DEVICE_ID,
+        "X-Device-Id": deviceId,
       },
       maxContentLength: Infinity,
       maxBodyLength: Infinity,
@@ -206,7 +228,7 @@ async function sendGifPlaybackFromVideo(mediaUrl, recipientPhone) {
 app.post("/webhook", authenticate, async (req, res) => {
 
 
-  let deviceId = DEVICE_ID
+  let deviceId = getWebhookDeviceId(req.body)
   const senderRaw =
     req.body?.from ||
     req.body?.payload?.from ||
@@ -243,7 +265,7 @@ app.post("/webhook", authenticate, async (req, res) => {
     setTimeout(() => processedMessages.delete(payload.id), 5 * 60 * 1000);
   }
 
-  deviceId = DEVICE_ID;
+  deviceId = getWebhookDeviceId(req.body);
 
   // 4️⃣ CEGAH PESAN DARI BOT SENDIRI
   if (
@@ -294,7 +316,7 @@ app.post("/webhook", authenticate, async (req, res) => {
 
   if (normalizedCommand === "sticker" || normalizedCommand === "stickergif") {
     const isAnimated = normalizedCommand === "stickergif";
-    const media = isAnimated ? req.body?.video : req.body?.image;
+    const media = getIncomingMedia(req.body, isAnimated);
     const mediaUrl = getMediaStaticUrl(media);
     const basicAuthHeader = `Basic ${Buffer.from(process.env.APP_BASIC_AUTH).toString("base64")}`;
 
@@ -303,32 +325,36 @@ app.post("/webhook", authenticate, async (req, res) => {
         ? "Kirim video dengan caption `stickergif` untuk membuat stiker bergerak."
         : "Kirim gambar dengan caption `sticker` untuk membuat stiker.";
 
-      await axios.post(
-        WHATSAPP_API_URL,
-        {
-          phone: recipient,
-          message,
-          reply_message_id:
-            req.body?.payload?.id ||
-            req.body?.message?.id ||
-            "",
-        },
-        {
-          headers: {
-            Authorization: basicAuthHeader,
-            "X-Device-Id": deviceId,
+      try {
+        await axios.post(
+          WHATSAPP_API_URL,
+          {
+            phone: recipient,
+            message,
+            reply_message_id:
+              req.body?.payload?.id ||
+              req.body?.message?.id ||
+              "",
           },
-        }
-      );
+          {
+            headers: {
+              Authorization: basicAuthHeader,
+              "X-Device-Id": deviceId,
+            },
+          }
+        );
+      } catch (error) {
+        console.error("Gagal mengirim instruksi sticker:", error.response?.data || error.message);
+      }
 
       return res.status(200).json({ success: true });
     }
 
     try {
       if (isAnimated) {
-        await sendGifPlaybackFromVideo(mediaUrl, recipient);
+        await sendGifPlaybackFromVideo(mediaUrl, recipient, deviceId);
       } else {
-        await sendStickerFromImage(mediaUrl, recipient);
+        await sendStickerFromImage(mediaUrl, recipient, deviceId);
       }
       console.log("Sticker/GIF berhasil dikirim ke:", recipient);
     } catch (error) {
@@ -399,7 +425,8 @@ app.post("/webhook", authenticate, async (req, res) => {
       await sendImage(
         validationResult.imageUrl,
         recipient,
-        `📷 Gambar artikel untuk permintaan ${messageText}`
+        `📷 Gambar artikel untuk permintaan ${messageText}`,
+        deviceId
       );
     }
 
