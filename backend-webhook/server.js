@@ -155,6 +155,14 @@ function getIncomingMedia(body, isVideo) {
   return (
     (isVideo ? body?.video : body?.image) ||
     (isVideo ? body?.payload?.video : body?.payload?.image) ||
+    (isVideo ? body?.video_url : body?.image_url) ||
+    (isVideo ? body?.payload?.video_url : body?.payload?.image_url) ||
+    body?.payload?.media_path ||
+    body?.media_path ||
+    body?.payload?.media_url ||
+    body?.media_url ||
+    body?.payload?.url ||
+    body?.url ||
     body?.payload?.media ||
     body?.media ||
     null
@@ -162,11 +170,28 @@ function getIncomingMedia(body, isVideo) {
 }
 
 function getMediaStaticUrl(media) {
-  const mediaPath = media?.media_path || media?.url || media?.media_url;
+  const mediaPath =
+    typeof media === "string"
+      ? media
+      : media?.media_path ||
+        media?.path ||
+        media?.file_path ||
+        media?.local_path ||
+        media?.url ||
+        media?.media_url ||
+        media?.image_url ||
+        media?.video_url ||
+        media?.download_url;
+
   if (!mediaPath) return null;
   if (/^https?:\/\//i.test(mediaPath)) return mediaPath;
 
-  const normalizedPath = mediaPath.replace(/\\/g, "/").replace(/^\/+/, "");
+  let normalizedPath = String(mediaPath).replace(/\\/g, "/").replace(/^\/+/, "");
+  const staticsIndex = normalizedPath.indexOf("statics/");
+  if (staticsIndex >= 0) {
+    normalizedPath = normalizedPath.slice(staticsIndex);
+  }
+
   const staticPath = normalizedPath.startsWith("statics/")
     ? normalizedPath
     : `statics/${normalizedPath}`;
@@ -339,6 +364,13 @@ app.post("/webhook", authenticate, async (req, res) => {
     const basicAuthHeader = `Basic ${Buffer.from(process.env.APP_BASIC_AUTH).toString("base64")}`;
 
     if (!mediaUrl) {
+      console.warn(
+        "Media untuk sticker tidak ditemukan. Keys webhook:",
+        Object.keys(req.body || {}),
+        "payload keys:",
+        Object.keys(req.body?.payload || {})
+      );
+
       const message = isAnimated
         ? "Kirim video dengan caption `stickergif` untuk membuat stiker bergerak."
         : "Kirim gambar dengan caption `sticker` untuk membuat stiker.";
