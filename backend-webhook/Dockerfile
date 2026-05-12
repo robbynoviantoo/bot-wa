@@ -10,6 +10,9 @@ COPY package*.json ./
 # Install dependencies
 RUN npm install
 
+# Install ffmpeg untuk convert video menjadi GIF sebelum dikirim sebagai animated sticker
+RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
+
 # Install nodemon secara global
 RUN npm install -g nodemon
 

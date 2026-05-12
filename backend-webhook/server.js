@@ -7,8 +7,16 @@ const messageHandlers = require("./handler"); // ✅ Import daftar handler
 const mongoose = require("mongoose");
 const UserToken = require("./models/UserToken");
 const FormData = require("form-data");
+const fs = require("fs");
+const fsPromises = require("fs/promises");
+const os = require("os");
+const path = require("path");
+const { execFile } = require("child_process");
+const { promisify } = require("util");
+const { randomUUID } = require("crypto");
 
 const app = express();
+const execFileAsync = promisify(execFile);
 
 const processedMessages = new Set();
 
@@ -234,6 +242,76 @@ async function sendStickerFromMedia(mediaUrl, recipientPhone, deviceId = DEVICE_
   return response.status === 200;
 }
 
+async function downloadToTempFile(fileUrl, extension) {
+  const tempPath = path.join(os.tmpdir(), `wa-sticker-${randomUUID()}${extension}`);
+  const response = await axios.get(fileUrl, { responseType: "arraybuffer" });
+  await fsPromises.writeFile(tempPath, Buffer.from(response.data));
+  return tempPath;
+}
+
+async function convertVideoToGif(videoUrl) {
+  const inputPath = await downloadToTempFile(videoUrl, ".mp4");
+  const outputPath = path.join(os.tmpdir(), `wa-sticker-${randomUUID()}.gif`);
+
+  try {
+    await execFileAsync("ffmpeg", [
+      "-y",
+      "-i",
+      inputPath,
+      "-t",
+      "6",
+      "-vf",
+      "fps=12,scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=white",
+      "-loop",
+      "0",
+      outputPath,
+    ]);
+  } catch (error) {
+    await fsPromises.rm(inputPath, { force: true });
+    await fsPromises.rm(outputPath, { force: true });
+    throw new Error(`ffmpeg gagal convert video ke GIF: ${error.message}`);
+  }
+
+  return { inputPath, outputPath };
+}
+
+async function sendAnimatedStickerFromVideo(mediaUrl, recipientPhone, deviceId = DEVICE_ID) {
+  const basicAuthHeader = `Basic ${Buffer.from(
+    process.env.APP_BASIC_AUTH
+  ).toString("base64")}`;
+
+  const { inputPath, outputPath } = await convertVideoToGif(mediaUrl);
+
+  try {
+    const form = new FormData();
+    form.append("phone", recipientPhone);
+    form.append("sticker", fs.createReadStream(outputPath), {
+      filename: "stickergif.gif",
+      contentType: "image/gif",
+    });
+    form.append("is_forwarded", "false");
+
+    const response = await axios.post(
+      getStickerApiUrl(),
+      form,
+      {
+        headers: {
+          ...form.getHeaders(),
+          Authorization: basicAuthHeader,
+          "X-Device-Id": deviceId,
+        },
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+      }
+    );
+
+    return response.status === 200;
+  } finally {
+    await fsPromises.rm(inputPath, { force: true });
+    await fsPromises.rm(outputPath, { force: true });
+  }
+}
+
 
 app.post("/webhook", authenticate, async (req, res) => {
 
@@ -368,7 +446,11 @@ app.post("/webhook", authenticate, async (req, res) => {
     }
 
     try {
-      await sendStickerFromMedia(mediaUrl, recipient, deviceId);
+      if (isAnimated) {
+        await sendAnimatedStickerFromVideo(mediaUrl, recipient, deviceId);
+      } else {
+        await sendStickerFromMedia(mediaUrl, recipient, deviceId);
+      }
       console.log("Sticker berhasil dikirim ke:", recipient);
     } catch (error) {
       console.error("Gagal membuat sticker:", error.response?.data || error.message);
