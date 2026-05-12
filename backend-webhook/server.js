@@ -21,7 +21,7 @@ const API_VALIDATE_URL_OT = process.env.API_VALIDATE_URL_OT;
 const WHATSAPP_API_URL = process.env.WHATSAPP_API_URL;
 const BASIC_AUTH_USERS = process.env.APP_BASIC_AUTH.split(",");
 const USER_TOKENS = JSON.parse(process.env.USER_TOKENS || "{}");
-const DEVICE_ID = process.env.WHATSAPP_DEVICE_ID || "2d945b64-4936-4bdf-bc15-4e988588c01e";
+const DEVICE_ID = process.env.WHATSAPP_DEVICE_ID || "asolole";
 const WHATSAPP_API_BASE =
   process.env.WHATSAPP_API_BASE ||
   new URL(WHATSAPP_API_URL || "http://10.20.10.106:3000/send/message").origin;
