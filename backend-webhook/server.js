@@ -120,10 +120,6 @@ function getStickerApiUrl() {
   return `${getWhatsappApiOrigin()}/send/sticker`;
 }
 
-function getVideoApiUrl() {
-  return `${getWhatsappApiOrigin()}/send/video`;
-}
-
 function isValidDeviceId(value) {
   if (!value || typeof value !== "string") return false;
   const trimmed = value.trim();
@@ -212,7 +208,7 @@ function getIncomingCommand(body) {
   );
 }
 
-async function sendStickerFromImage(mediaUrl, recipientPhone, deviceId = DEVICE_ID) {
+async function sendStickerFromMedia(mediaUrl, recipientPhone, deviceId = DEVICE_ID) {
   const basicAuthHeader = `Basic ${Buffer.from(
     process.env.APP_BASIC_AUTH
   ).toString("base64")}`;
@@ -223,35 +219,6 @@ async function sendStickerFromImage(mediaUrl, recipientPhone, deviceId = DEVICE_
 
   const response = await axios.post(
     getStickerApiUrl(),
-    form,
-    {
-      headers: {
-        ...form.getHeaders(),
-        Authorization: basicAuthHeader,
-        "X-Device-Id": deviceId,
-      },
-      maxContentLength: Infinity,
-      maxBodyLength: Infinity,
-    }
-  );
-
-  return response.status === 200;
-}
-
-async function sendGifPlaybackFromVideo(mediaUrl, recipientPhone, deviceId = DEVICE_ID) {
-  const basicAuthHeader = `Basic ${Buffer.from(
-    process.env.APP_BASIC_AUTH
-  ).toString("base64")}`;
-  const form = new FormData();
-  form.append("phone", recipientPhone);
-  form.append("video_url", mediaUrl);
-  form.append("gif_playback", "true");
-  form.append("compress", "false");
-  form.append("view_once", "false");
-  form.append("is_forwarded", "false");
-
-  const response = await axios.post(
-    getVideoApiUrl(),
     form,
     {
       headers: {
@@ -401,14 +368,10 @@ app.post("/webhook", authenticate, async (req, res) => {
     }
 
     try {
-      if (isAnimated) {
-        await sendGifPlaybackFromVideo(mediaUrl, recipient, deviceId);
-      } else {
-        await sendStickerFromImage(mediaUrl, recipient, deviceId);
-      }
-      console.log("Sticker/GIF berhasil dikirim ke:", recipient);
+      await sendStickerFromMedia(mediaUrl, recipient, deviceId);
+      console.log("Sticker berhasil dikirim ke:", recipient);
     } catch (error) {
-      console.error("Gagal membuat sticker/GIF:", error.response?.data || error.message);
+      console.error("Gagal membuat sticker:", error.response?.data || error.message);
     }
 
     return res.status(200).json({ success: true });
