@@ -10,6 +10,8 @@ const FormData = require("form-data");
 
 const app = express();
 
+const processedMessages = new Set();
+
 // ✅ Middleware CORS
 app.use(cors({ origin: "*" })); // Izinkan semua origin (bisa diganti dengan domain tertentu)
 app.use(bodyParser.json());
@@ -20,6 +22,10 @@ const WHATSAPP_API_URL = process.env.WHATSAPP_API_URL;
 const BASIC_AUTH_USERS = process.env.APP_BASIC_AUTH.split(",");
 const USER_TOKENS = JSON.parse(process.env.USER_TOKENS || "{}");
 const DEVICE_ID = process.env.WHATSAPP_DEVICE_ID || "2d945b64-4936-4bdf-bc15-4e988588c01e";
+const WHATSAPP_API_BASE = process.env.WHATSAPP_API_BASE;
+
+const userCooldown = new Map();
+const COOLDOWN_MS = 10 * 1000; // 10 detik
 
 function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -40,6 +46,7 @@ function authenticate(req, res, next) {
 }
 
 async function sendImage(imageUrl, recipientPhone, caption) {
+  const deviceId = "asolole";
   try {
     console.log(`🔍 Mulai download gambar dari URL: ${imageUrl}`);
 
@@ -195,9 +202,7 @@ async function sendGifPlaybackFromVideo(mediaUrl, recipientPhone) {
 }
 
 
-
 app.post("/webhook", authenticate, async (req, res) => {
-  console.log("📩 Pesan diterima dari WhatsApp:", JSON.stringify(req.body, null, 2));
 
 
   const deviceId = DEVICE_ID
@@ -211,23 +216,67 @@ app.post("/webhook", authenticate, async (req, res) => {
 
   if (!messageText) {
     console.log("⚠️ Tidak ada teks pesan, abaikan.");
+  // 1️⃣ HANYA PROSES EVENT MESSAGE
+  if (req.body?.event !== "message") {
     return res.status(200).json({ success: true });
   }
 
-  let senderPhone, groupId;
-  if (senderRaw.includes(" in ")) {
-    [senderPhone, groupId] = senderRaw.split(" in ");
-  } else {
-    senderPhone = senderRaw;
-    groupId = null;
+  const payload = req.body.payload || {};
+
+  console.log("📩 Pesan diterima dari WhatsApp:", JSON.stringify(req.body, null, 2));
+
+  // 2️⃣ VALIDASI PAYLOAD
+  if (!payload.id || !payload.from || !payload.body) {
+    return res.status(200).json({ success: true });
   }
 
-  const senderParts = senderPhone.split(":");
-  senderPhone = senderParts[0].includes("@s.whatsapp.net")
-    ? senderParts[0]
-    : senderParts[0] + "@s.whatsapp.net";
+  // 3️⃣ CEGAH DUPLIKASI MESSAGE ID
+  if (processedMessages.has(payload.id)) {
+    console.log("🔁 Pesan duplikat diabaikan:", payload.id);
+    return res.status(200).json({ success: true });
+  }
+  processedMessages.add(payload.id);
+  setTimeout(() => processedMessages.delete(payload.id), 5 * 60 * 1000);
 
-  console.log(`👤 Pengirim: ${senderPhone}, 📢 Grup: ${groupId || "Bukan Grup"}`);
+  const deviceId = "asolole";
+
+  // 4️⃣ CEGAH PESAN DARI BOT SENDIRI
+  if (
+    payload.from === req.body.device_id ||
+    payload.from === deviceId
+  ) {
+    return res.status(200).json({ success: true });
+  }
+
+  let senderPhone = payload.from;
+  const chatId = payload.chat_id || senderPhone;
+  const isGroup = chatId.endsWith("@g.us");
+  const groupId = isGroup ? chatId : null;
+
+  if (!senderPhone.endsWith("@s.whatsapp.net")) {
+    senderPhone += "@s.whatsapp.net";
+  }
+
+  console.log(`👤 Pengirim: ${senderPhone}, 📢 Chat: ${isGroup ? "Grup" : "Pribadi"}`);
+
+  // 5️⃣ AMBIL TEXT HANYA DARI payload.body
+  const messageText = payload.body.trim();
+
+  if (!messageText) {
+    return res.status(200).json({ success: true });
+  }
+
+  // ⏳ CEK COOLDOWN PER USER
+  const now = Date.now();
+  const cooldownUntil = userCooldown.get(senderPhone) || 0;
+
+  if (now < cooldownUntil) {
+    console.log(`⏳ Cooldown aktif untuk ${senderPhone}`);
+    return res.status(200).json({ success: true });
+  }
+
+  // set cooldown 10 detik
+  userCooldown.set(senderPhone, now + COOLDOWN_MS);
 
   const recipient = groupId || senderPhone;
   const normalizedCommand = messageText.toLowerCase();
@@ -287,22 +336,15 @@ app.post("/webhook", authenticate, async (req, res) => {
   if (userData) {
     userToken = userData.token;
     userName = userData.name || senderPhone;
-    console.log(`🔹 Menggunakan token milik ${userName}...`);
-  } else {
-    console.log("⚠️ Pengirim tidak memiliki token yang valid.");
   }
 
   let validationResult = null;
 
   for (const { regex, handler, apiUrl, requiresToken } of messageHandlers) {
     if (regex.test(messageText)) {
-      if (requiresToken && !userToken) {
-        validationResult = { success: false, message: "❌ Anda tidak memiliki izin." };
-      } else {
-        validationResult = requiresToken
-          ? await handler(messageText, senderPhone, userToken, userName, apiUrl)
-          : await handler(messageText, senderPhone, null, userName, apiUrl);
-      }
+      validationResult = requiresToken && !userToken
+        ? { success: false, message: "❌ Anda tidak memiliki izin." }
+        : await handler(messageText, senderPhone, userToken, userName, apiUrl);
       break;
     }
   }
@@ -312,49 +354,87 @@ app.post("/webhook", authenticate, async (req, res) => {
   }
 
   const basicAuthHeader = `Basic ${Buffer.from(process.env.APP_BASIC_AUTH).toString("base64")}`;
+  const recipient = groupId || senderPhone;
+  const headers = {
+    Authorization: `Basic ${Buffer.from(process.env.APP_BASIC_AUTH).toString("base64")}`,
+    "X-Device-Id": deviceId,
+  };
 
   try {
-    // Kirim teks dulu
+    // READ
+    await markAsRead(payload.id, senderPhone, headers);
+    await sleep(random(300, 800));
+
+    // TYPING
+    await setTyping(recipient, "start", headers);
+    await sleep(3000);
+    await setTyping(recipient, "stop", headers);
+    await sleep(random(500, 1500));
+
+    // SEND MESSAGE
     await axios.post(
       WHATSAPP_API_URL,
       {
         phone: recipient,
         message: validationResult.message,
-        reply_message_id:
-          req.body?.payload?.id ||
-          req.body?.message?.id ||
-          "",
+        reply_message_id: payload.id,
       },
-      {
-        headers: {
-          Authorization: basicAuthHeader,
-          "X-Device-Id": deviceId,
-        },
-      }
+      { headers }
     );
 
-    console.log("✅ Balasan teks berhasil dikirim ke:", recipient);
-
-    // Jika ada imageUrl, kirim gambar
+    // IMAGE
     if (validationResult.imageUrl) {
-      const caption = `📷 Gambar artikel untuk permintaan ${messageText}`;
-      const success = await sendImage(validationResult.imageUrl, recipient, caption);
-
-      if (success) {
-        console.log("✅ Gambar berhasil dikirim ke:", recipient);
-      } else {
-        console.log("⚠️ Gagal mengirim gambar ke:", recipient);
-      }
+      await sleep(3000);
+      await sendImage(
+        validationResult.imageUrl,
+        recipient,
+        `📷 Gambar artikel untuk permintaan ${messageText}`
+      );
     }
 
-  } catch (error) {
-    console.error("❌ Gagal mengirim balasan:", error.response?.data || error.message);
+  } catch (err) {
+    console.error("❌ Error:", err.response?.data || err.message);
   }
 
   res.status(200).json({ success: true });
 });
 
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function random(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+async function markAsRead(messageId, phone, headers) {
+  if (!messageId) return;
+
+  try {
+    await axios.post(
+      `${WHATSAPP_API_BASE}/message/${messageId}/read`,
+      { phone },
+      { headers }
+    );
+    console.log("👀 Pesan ditandai sudah dibaca");
+  } catch (err) {
+    console.log("⚠️ Gagal read message:", err.response?.data || err.message);
+  }
+}
+
+async function setTyping(phone, action, headers) {
+  try {
+    await axios.post(
+      `${WHATSAPP_API_BASE}/send/chat-presence`,
+      { phone, action },
+      { headers }
+    );
+    console.log(`⌨️ Typing ${action}`);
+  } catch (err) {
+    console.log("⚠️ Gagal typing indicator:", err.response?.data || err.message);
+  }
+}
 
 app.post("/add-user-token", async (req, res) => {
   const { phone, token, name } = req.body;
