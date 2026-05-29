@@ -48,7 +48,7 @@ async function validateMcs(
       let statusMsg = "";
 
       if (item.message === "Ada") {
-        statusMsg = `✅ *Tersedia* di rak ${item.no_rak}, *Model*: ${item.nama_model}, *Type*: ${item.name}`;
+        statusMsg = `✅ Milik *${item.kategori}* *Tersedia* di rak ${item.no_rak}, *Model*: ${item.nama_model}, *Type*: ${item.name}`;
       } else if (item.message === "Sedang dipinjam") {
         statusMsg = `❌ Milik *${item.kategori}* *Dipinjam* oleh ${
           item.borrower_name || "?"
